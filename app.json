@@ -1,25 +1,31 @@
 {
   "expo": {
-    "name": "artha",
-    "slug": "artha",
+    "name": "Artha",
+    "slug": "artha-finance",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "ios": {
-      "supportsTablet": true
+    "icon": "./assets/splash_logo_round.png",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "image": "./assets/splash_logo_round.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0C0C12"
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "foregroundImage": "./assets/splash_logo_round.png",
+        "backgroundColor": "#0C0C12"
       },
-      "predictiveBackGestureEnabled": false
+      "package": "com.artha.finance",
+      "permissions": [
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
+      ]
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    }
+    "plugins": [
+      "expo-sqlite",
+      "expo-notifications",
+      "expo-secure-store"
+    ]
   }
 }
