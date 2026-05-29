@@ -1,25 +1,97 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
+  Modal, TextInput, Alert, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, radius, type } from '../theme';
+import { getMembers, addMember, deleteMember, Member } from '../db/queries';
 
 const RING_R  = 52;
 const RING_C  = 2 * Math.PI * RING_R;
 const FUND_PCT = 28;
 
+const COLORS = [
+  '#3B82F6', '#8B5CF6', '#EC4899', '#F59E0B', '#10B981', '#0EA5E9'
+];
+
 export default function FamilyScreen() {
   const nav = useNavigation<any>();
 
-  const members = [
-    { name: 'Meena', rel: 'Spouse',            cost: 8000,  initials: 'ME' },
-    { name: 'Aryan', rel: 'Son (school fees)', cost: 12000, initials: 'AR' },
-    { name: 'Appa',  rel: 'Father (medical)',  cost: 6500,  initials: 'AP' },
-  ];
+  const [members, setMembers] = useState<Member[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  // New member form
+  const [newName, setNewName] = useState('');
+  const [newRel, setNewRel] = useState('');
+  const [newCost, setNewCost] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function loadData() {
+    try {
+      const data = await getMembers();
+      setMembers(data);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  async function handleAdd() {
+    if (!newName.trim() || !newRel.trim() || !newCost.trim()) {
+      Alert.alert('Missing fields', 'Please fill all details');
+      return;
+    }
+    const limit = parseFloat(newCost);
+    if (isNaN(limit) || limit < 0) {
+      Alert.alert('Invalid amount', 'Please enter a valid monthly limit');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const initials = newName.substring(0, 2).toUpperCase();
+      const color = COLORS[members.length % COLORS.length];
+      
+      await addMember({
+        name: newName.trim(),
+        rel: newRel.trim(),
+        initials,
+        monthly_limit: limit,
+        color
+      });
+      
+      setNewName('');
+      setNewRel('');
+      setNewCost('');
+      setModalVisible(false);
+      await loadData();
+    } catch (e) {
+      console.error(e);
+      Alert.alert('Error', 'Failed to add member');
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleDelete(id: number) {
+    Alert.alert('Remove Member', 'Are you sure you want to remove this family member?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: async () => {
+        await deleteMember(id);
+        await loadData();
+      }}
+    ]);
+  }
 
   const insurance = [
     { name: 'Health Insurance', status: 'Active',           icon: 'checkmark-circle', color: colors.success, detail: '₹15,000/yr'        },
@@ -28,7 +100,9 @@ export default function FamilyScreen() {
   ];
 
   const fundRingFill = (FUND_PCT / 100) * RING_C;
-  const commitPct    = 39;
+  
+  const totalCost = members.reduce((sum, m) => sum + m.monthly_limit, 0);
+  const commitPct = totalCost > 0 ? 39 : 0; // Hardcoded percentage for demo visually
   const commitRing   = (commitPct / 100) * RING_C;
   const COMMIT_R     = 52;
   const COMMIT_C     = 2 * Math.PI * COMMIT_R;
@@ -56,7 +130,7 @@ export default function FamilyScreen() {
                 <Circle
                   cx={55} cy={55} r={COMMIT_R}
                   fill="none"
-                  stroke={colors.amber}
+                  stroke={totalCost > 0 ? colors.amber : colors.border}
                   strokeWidth={9}
                   strokeDasharray={`${commitRing} ${COMMIT_C}`}
                   strokeLinecap="round"
@@ -73,8 +147,8 @@ export default function FamilyScreen() {
             {/* Numbers */}
             <View style={{ flex: 1 }}>
               <Text style={type.label}>MONTHLY FAMILY{'\n'}COMMITMENTS</Text>
-              <Text style={[type.currencyLg, { color: colors.text, marginTop: spacing.sm }]}>₹28,500</Text>
-              <Text style={[type.bodySm, { color: colors.muted, marginTop: 4 }]}>39% of total income</Text>
+              <Text style={[type.currencyLg, { color: colors.text, marginTop: spacing.sm }]}>₹{totalCost.toLocaleString('en-IN')}</Text>
+              {totalCost > 0 && <Text style={[type.bodySm, { color: colors.muted, marginTop: 4 }]}>~{commitPct}% of total income</Text>}
             </View>
           </View>
         </View>
@@ -82,20 +156,22 @@ export default function FamilyScreen() {
         {/* ── 2. FAMILY MEMBER CARDS ── */}
         <Text style={[type.label, styles.sectionLabel]}>FAMILY MEMBERS</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.memberScroll}>
-          {members.map((m) => (
-            <View key={m.name} style={styles.memberCard}>
-              <View style={styles.memberAvatar}>
-                <Text style={styles.memberInitials}>{m.initials}</Text>
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.accent} style={{ margin: spacing.xl }} />
+          ) : members.map((m) => (
+            <TouchableOpacity key={m.id} style={styles.memberCard} onLongPress={() => handleDelete(m.id)}>
+              <View style={[styles.memberAvatar, { borderColor: m.color, backgroundColor: `${m.color}20` }]}>
+                <Text style={[styles.memberInitials, { color: m.color }]}>{m.initials}</Text>
               </View>
-              <Text style={[type.bodyLg, { fontFamily: 'Inter_600SemiBold', marginTop: spacing.sm }]}>{m.name}</Text>
-              <Text style={[type.bodySm, { color: colors.muted, textAlign: 'center', marginTop: 2 }]}>{m.rel}</Text>
+              <Text style={[type.bodyLg, { fontFamily: 'Inter_600SemiBold', marginTop: spacing.sm }]} numberOfLines={1}>{m.name}</Text>
+              <Text style={[type.bodySm, { color: colors.muted, textAlign: 'center', marginTop: 2 }]} numberOfLines={1}>{m.rel || 'Family'}</Text>
               <Text style={[type.currencySm, { color: colors.amber, marginTop: spacing.sm, fontFamily: 'JetBrainsMono_700Bold' }]}>
-                ₹{m.cost.toLocaleString('en-IN')}/mo
+                ₹{m.monthly_limit.toLocaleString('en-IN')}/mo
               </Text>
-            </View>
+            </TouchableOpacity>
           ))}
           {/* Add Member */}
-          <TouchableOpacity style={styles.addMemberCard} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.addMemberCard} activeOpacity={0.7} onPress={() => setModalVisible(true)}>
             <Ionicons name="add-circle-outline" size={28} color={colors.muted} />
             <Text style={[type.bodySm, { color: colors.muted, marginTop: spacing.sm, textAlign: 'center' }]}>Add{'\n'}Member</Text>
           </TouchableOpacity>
@@ -141,6 +217,57 @@ export default function FamilyScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* ── ADD MEMBER MODAL ── */}
+      <Modal visible={modalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.lg }}>
+              <Text style={type.headline}>Add Family Member</Text>
+              <TouchableOpacity onPress={() => setModalVisible(false)}>
+                <Ionicons name="close" size={24} color={colors.muted} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.inputLabel}>Name</Text>
+            <TextInput
+              style={styles.input}
+              value={newName}
+              onChangeText={setNewName}
+              placeholder="e.g. Meena"
+              placeholderTextColor={colors.hint}
+            />
+
+            <Text style={styles.inputLabel}>Relationship</Text>
+            <TextInput
+              style={styles.input}
+              value={newRel}
+              onChangeText={setNewRel}
+              placeholder="e.g. Spouse"
+              placeholderTextColor={colors.hint}
+            />
+
+            <Text style={styles.inputLabel}>Monthly Limit / Commitment (₹)</Text>
+            <TextInput
+              style={styles.input}
+              value={newCost}
+              onChangeText={setNewCost}
+              placeholder="e.g. 8000"
+              keyboardType="numeric"
+              placeholderTextColor={colors.hint}
+            />
+
+            <TouchableOpacity
+              style={[styles.saveBtn, isSaving && { opacity: 0.7 }]}
+              onPress={handleAdd}
+              disabled={isSaving}
+            >
+              <Text style={styles.saveBtnTxt}>{isSaving ? 'Saving...' : 'Add Member'}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -184,11 +311,10 @@ const styles = StyleSheet.create({
   },
   memberAvatar: {
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: `${colors.accent}20`,
-    borderWidth: 2, borderColor: `${colors.accent}50`,
+    borderWidth: 2,
     alignItems: 'center', justifyContent: 'center',
   },
-  memberInitials: { ...type.bodyLg, color: colors.accent, fontFamily: 'Inter_700Bold' },
+  memberInitials: { ...type.bodyLg, fontFamily: 'Inter_700Bold' },
   addMemberCard: {
     backgroundColor: colors.s1,
     borderRadius: radius.lg,
@@ -213,4 +339,35 @@ const styles = StyleSheet.create({
   progressFill:  { height: '100%', backgroundColor: colors.success, borderRadius: 5 },
   fundFooter:    { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
   fundInfo:      { flexDirection: 'row', gap: spacing.xs, alignItems: 'flex-start', marginTop: 4 },
+
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: colors.bg,
+    borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl,
+    padding: spacing.xl,
+    paddingBottom: spacing.xl * 2,
+    borderTopWidth: 1, borderColor: colors.border,
+  },
+  inputLabel: {
+    ...type.bodySm, color: colors.muted, marginBottom: 4, marginTop: spacing.sm,
+  },
+  input: {
+    backgroundColor: colors.s1,
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md, paddingVertical: 12,
+    color: colors.text, fontFamily: 'Inter_500Medium',
+    marginBottom: spacing.sm,
+  },
+  saveBtn: {
+    backgroundColor: colors.accent,
+    paddingVertical: 14, borderRadius: radius.md,
+    alignItems: 'center', marginTop: spacing.lg,
+  },
+  saveBtnTxt: {
+    color: '#111', fontFamily: 'Inter_700Bold', fontSize: 16,
+  },
 });

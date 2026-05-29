@@ -51,6 +51,7 @@ export default function CoachScreen() {
           safeToSpend: store.safeToSpend ?? 0,
           spentSoFar: (store.profile?.monthly_income ?? 0) - (store.balance ?? 0),
           dangerDay: store.dangerWindow?.firstDay || undefined,
+          language: store.profile?.language || 'English',
         }
       );
       const botMsg: Message = {

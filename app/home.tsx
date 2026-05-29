@@ -116,7 +116,6 @@ export default function HomeScreen() {
         {/* ── QUICK ACTIONS ── */}
         <View style={styles.quickRow}>
           <QuickAction icon="bulb-outline"        label="Jugaad"   color={colors.amber}  route="Jugaad"  />
-          <QuickAction icon="chatbubble-outline"   label="Coach"    color={colors.accent} route="Coach"   />
           <QuickAction icon="wallet-outline"       label="Jars"     color={colors.accent} route="Jars"    />
           <QuickAction icon="leaf-outline"         label="Breathe"  color={colors.muted}  route="Breathe" />
         </View>
@@ -163,7 +162,6 @@ export default function HomeScreen() {
         activeOpacity={0.85}
       >
         <Ionicons name="chatbubble-ellipses" size={18} color={colors.accent} />
-        <Text style={styles.coachFabLabel}>AI Coach</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -373,25 +371,22 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
 
-  // FAB — AI Coach
+  // FAB — AI Coach (Small Side Tab)
   coachFab: {
     position: 'absolute',
-    bottom: 92,
-    left: spacing.containerMargin,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.s1,
+    top: 150,
+    left: 0,
+    width: 32,
+    height: 48,
+    backgroundColor: `${colors.accent}20`,
     borderWidth: 1,
-    borderColor: `${colors.accent}40`,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: radius.full,
+    borderLeftWidth: 0,
+    borderColor: colors.accent,
+    borderTopRightRadius: 24,
+    borderBottomRightRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingRight: 2,
     elevation: 4,
-  },
-  coachFabLabel: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
-    color: colors.accent,
   },
 });

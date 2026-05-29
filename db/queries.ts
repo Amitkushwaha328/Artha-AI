@@ -120,11 +120,6 @@ export async function updateInvoiceStatus(id: number, status: string) {
   await db.runAsync('UPDATE invoices SET status = ? WHERE id = ?', [status, id]);
 }
 
-// ── MEMBERS ──────────────────────────────────────────────────────
-export async function getMembers() {
-  const db = await getDB();
-  return db.getAllAsync<Member>('SELECT * FROM members ORDER BY id');
-}
 
 // ── JARS ─────────────────────────────────────────────────────────
 export async function getJars() {
@@ -138,6 +133,25 @@ export async function addToJar(id: number, amount: number) {
     'UPDATE jars SET saved = MIN(target, saved + ?) WHERE id = ?',
     [amount, id]
   );
+}
+
+// ── MEMBERS ──────────────────────────────────────────────────────
+export async function getMembers() {
+  const db = await getDB();
+  return db.getAllAsync<Member>('SELECT * FROM members ORDER BY id');
+}
+
+export async function addMember(m: { name: string; rel: string; initials: string; monthly_limit: number; color: string }) {
+  const db = await getDB();
+  await db.runAsync(
+    'INSERT INTO members (name, rel, initials, monthly_limit, color) VALUES (?, ?, ?, ?, ?)',
+    [m.name, m.rel, m.initials, m.monthly_limit, m.color]
+  );
+}
+
+export async function deleteMember(id: number) {
+  const db = await getDB();
+  await db.runAsync('DELETE FROM members WHERE id = ?', [id]);
 }
 
 // ── COACH CHAT ───────────────────────────────────────────────────
@@ -162,6 +176,7 @@ export interface Profile {
   income_type: string; monthly_income: number;
   salary_day: number; current_balance: number;
   safety_pct: number; claude_key: string;
+  language?: string;
 }
 export interface Transaction {
   id: number; amount: number; type: string;
@@ -178,7 +193,7 @@ export interface Invoice {
   amount: number; status: string; due_date: string; raised_date: string;
 }
 export interface Member {
-  id: number; name: string; initials: string;
+  id: number; name: string; rel: string; initials: string;
   monthly_limit: number; color: string;
 }
 export interface Jar {

@@ -70,10 +70,12 @@ export async function initDB(): Promise<void> {
     CREATE TABLE IF NOT EXISTS members (
       id            INTEGER PRIMARY KEY AUTOINCREMENT,
       name          TEXT    NOT NULL,
+      rel           TEXT    DEFAULT 'Family',
       initials      TEXT    NOT NULL,
       monthly_limit REAL    NOT NULL DEFAULT 0,
       color         TEXT    DEFAULT '#3B82F6'
     );
+
 
     -- ── SAVINGS JARS ──────────────────────────────────────────
     CREATE TABLE IF NOT EXISTS jars (
@@ -104,4 +106,7 @@ export async function initDB(): Promise<void> {
     );
 
   `);
+
+  try { await db.execAsync("ALTER TABLE members ADD COLUMN rel TEXT DEFAULT 'Family';"); } catch (e) {}
+  try { await db.execAsync("ALTER TABLE profile ADD COLUMN language TEXT DEFAULT 'English';"); } catch (e) {}
 }

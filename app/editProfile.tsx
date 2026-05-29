@@ -157,13 +157,13 @@ export default function EditProfileScreen() {
           {/* Income type toggle */}
           <Text style={styles.fieldLabel}>Income Type</Text>
           <Text style={styles.hint}>How you earn your money</Text>
-          <View style={styles.toggleRow}>
+          <View style={styles.toggleGrid}>
             {INCOME_TYPES.map((t) => {
               const label = t === 'pocket' ? 'Pocket Money' : t.charAt(0).toUpperCase() + t.slice(1);
               return (
                 <TouchableOpacity
                   key={t}
-                  style={[styles.toggleBtn, incomeType === t && styles.toggleBtnActive]}
+                  style={[styles.toggleGridBtn, incomeType === t && styles.toggleBtnActive]}
                   onPress={() => setIncomeType(t)}
                 >
                   <Text style={[styles.toggleTxt, incomeType === t && styles.toggleTxtActive]}>
@@ -339,13 +339,14 @@ const styles = StyleSheet.create({
     borderColor: colors.borderMid,
     marginBottom: spacing.sm,
   },
-  toggleRow: {
+  toggleGrid: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.sm,
     marginBottom: spacing.md,
   },
-  toggleBtn: {
-    flex: 1,
+  toggleGridBtn: {
+    width: '48%', // roughly half width for 2x2
     paddingVertical: 10,
     borderRadius: radius.md,
     borderWidth: 1,

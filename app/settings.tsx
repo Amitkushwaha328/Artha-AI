@@ -1,22 +1,36 @@
 import React, { useState } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Alert,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Switch, Alert, Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useStore } from '../store/useStore';
+import { updateProfile } from '../db/queries';
 import { colors, spacing, radius, type } from '../theme';
 
 export default function SettingsScreen() {
   const nav = useNavigation<any>();
-  const { monthlyIncome, balance, profile } = useStore();
+  const { monthlyIncome, balance, profile, refreshAll } = useStore();
   const [notifs, setNotifs] = useState({
     danger: true,
     doom: true,
     daily: false,
     bills: true,
   });
+  const [langModalVisible, setLangModalVisible] = useState(false);
+  const LANGUAGES = ['English', 'Hindi', 'Hinglish', 'Tamil', 'Telugu', 'Marathi'];
+
+  async function updateLang(l: string) {
+    if (!profile) return;
+    try {
+      await updateProfile({ language: l });
+      await refreshAll();
+      setLangModalVisible(false);
+    } catch (e) {
+      console.error(e);
+    }
+  }
 
   const SettingsRow = ({
     label, value, onPress, right, last,
@@ -109,7 +123,7 @@ export default function SettingsScreen() {
         <View style={styles.card}>
           <SettingsRow label="AI Coach"       onPress={() => nav.navigate('Coach')} value="Chat" />
           <SettingsRow label="Scheme Radar"   onPress={() => nav.navigate('Schemes')} value="View" />
-          <SettingsRow label="Language"       value="English + Hindi" onPress={() => Alert.alert('Language', 'English and Hindi are currently supported.')} />
+          <SettingsRow label="Language"       value={profile?.language || 'English'} onPress={() => setLangModalVisible(true)} />
           <SettingsRow label="Response Style" value="Friendly"        onPress={() => Alert.alert('Response Style', 'AI responses are tuned to be friendly and empathetic.')} />
           <SettingsRow
             label="API Status"
@@ -134,6 +148,29 @@ export default function SettingsScreen() {
 
         <View style={{ height: 100 }} />
       </ScrollView>
+
+      {/* LANGUAGE MODAL */}
+      <Modal visible={langModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={[type.headline, { marginBottom: spacing.md }]}>Select AI Language</Text>
+            {LANGUAGES.map((l) => (
+              <TouchableOpacity
+                key={l}
+                style={styles.langRow}
+                onPress={() => updateLang(l)}
+              >
+                <Text style={type.bodyLg}>{l}</Text>
+                {profile?.language === l && <Ionicons name="checkmark" size={20} color={colors.accent} />}
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setLangModalVisible(false)}>
+              <Text style={[type.bodyLg, { color: colors.muted }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -195,4 +232,22 @@ const styles = StyleSheet.create({
   rowRight:  { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
   statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   greenDot:  { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
+
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center', justifyContent: 'center',
+    padding: spacing.xl,
+  },
+  modalContent: {
+    backgroundColor: colors.s1, width: '100%',
+    borderRadius: radius.lg, padding: spacing.lg,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  langRow: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border,
+  },
+  closeBtn: {
+    marginTop: spacing.md, alignItems: 'center', paddingVertical: spacing.sm,
+  },
 });
