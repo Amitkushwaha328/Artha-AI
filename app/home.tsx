@@ -1,18 +1,127 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Dimensions, Image,
+  Animated, PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, type } from '../theme';
 import { useStore } from '../store/useStore';
+import { getBills, getTxnsThisMonth } from '../db/queries';
 
-const { width } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const COACH_BUTTON_SIZE = 46;
 
 export default function HomeScreen() {
   const nav = useNavigation<any>();
+
+  // ── Dynamic greeting based on time of day ──
+  function getGreeting() {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  // ── Live balance breakdown from DB ──
+  const [billsReserved, setBillsReserved] = useState(0);
+  const [spentThisMonth, setSpentThisMonth] = useState(0);
+
+  useEffect(() => {
+    async function loadBreakdown() {
+      try {
+        const [bills, txns] = await Promise.all([
+          getBills(),
+          getTxnsThisMonth(),
+        ]);
+        const reserved = bills.reduce((sum, b) => sum + b.amount, 0);
+        const spent = txns
+          .filter(t => t.type === 'debit')
+          .reduce((sum, t) => sum + t.amount, 0);
+        setBillsReserved(reserved);
+        setSpentThisMonth(spent);
+      } catch (e) {
+        console.error('Home breakdown load error:', e);
+      }
+    }
+    loadBreakdown();
+  }, []);
+
+  const pan = useRef(new Animated.ValueXY({ x: 0, y: 200 })).current;
+  const offset = useRef({ x: 0, y: 200 });
+
+  useEffect(() => {
+    const listener = pan.addListener((value) => {
+      offset.current = { x: value.x, y: value.y };
+    });
+    return () => {
+      pan.removeListener(listener);
+    };
+  }, [pan]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        pan.setOffset({
+          x: offset.current.x,
+          y: offset.current.y,
+        });
+        pan.setValue({ x: 0, y: 0 });
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      },
+      onPanResponderMove: (e, gestureState) => {
+        pan.setValue({ x: gestureState.dx, y: gestureState.dy });
+      },
+      onPanResponderRelease: (e, gestureState) => {
+        pan.flattenOffset();
+
+        const currentX = offset.current.x + gestureState.dx;
+        const currentY = offset.current.y + gestureState.dy;
+
+        // Snap to nearest side edge
+        const snapX = currentX < (SCREEN_WIDTH - COACH_BUTTON_SIZE) / 2
+          ? 0
+          : SCREEN_WIDTH - COACH_BUTTON_SIZE;
+
+        const snapY = Math.min(
+          Math.max(100, currentY),
+          SCREEN_HEIGHT - 150
+        );
+
+        offset.current = { x: snapX, y: snapY };
+
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+        Animated.parallel([
+          Animated.spring(pan.x, {
+            toValue: snapX,
+            useNativeDriver: false,
+            friction: 5,
+            tension: 40,
+          }),
+          Animated.spring(pan.y, {
+            toValue: snapY,
+            useNativeDriver: false,
+            friction: 5,
+            tension: 40,
+          }),
+        ]).start();
+
+        // Handle tap vs drag
+        const dragDistance = Math.sqrt(
+          gestureState.dx * gestureState.dx + gestureState.dy * gestureState.dy
+        );
+        if (dragDistance < 8) {
+          nav.navigate('Coach');
+        }
+      },
+    })
+  ).current;
   const { safeToSpend, balance, monthlyIncome, dangerWindow, doomActive, profile } = useStore();
 
   const budgetUsedPct = monthlyIncome > 0
@@ -48,7 +157,7 @@ export default function HomeScreen() {
           />
           <View>
             <Text style={styles.greeting}>
-            Good morning, {profile?.name || 'there'} 👋
+            {getGreeting()}, {profile?.name || 'there'} 👋
           </Text>
             <Text style={styles.subtitle}>Artha · अर्थ · Your safety net</Text>
           </View>
@@ -62,7 +171,9 @@ export default function HomeScreen() {
             style={styles.avatar}
             onPress={() => nav.navigate('Settings')}
           >
-            <Text style={styles.avatarText}>R</Text>
+            <Text style={styles.avatarText}>
+              {profile?.name ? profile.name.charAt(0).toUpperCase() : '?'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -124,10 +235,10 @@ export default function HomeScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Balance Breakdown</Text>
           {[
-            { label: 'Reserved for bills', color: colors.amber,          amt: 12600 },
-            { label: 'Spent this month',   color: colors.danger,         amt: 18960 },
-            { label: 'Safety buffer',      color: colors.muted,          amt: 1770  },
-            { label: 'Safe to spend',      color: colors.accent,         amt: safeAmt, bold: true },
+            { label: 'Reserved for bills', color: colors.amber,  amt: billsReserved },
+            { label: 'Spent this month',   color: colors.danger,  amt: spentThisMonth },
+            { label: 'Safety buffer',      color: colors.muted,   amt: Math.round((monthlyIncome * ((profile?.safety_pct ?? 5) / 100))) },
+            { label: 'Safe to spend',      color: colors.accent,  amt: safeAmt, bold: true },
           ].map((row) => (
             <View key={row.label} style={styles.breakdownRow}>
               <View style={styles.breakdownLeft}>
@@ -156,13 +267,17 @@ export default function HomeScreen() {
       </TouchableOpacity>
 
       {/* ── FLOATING AI COACH BUTTON ── */}
-      <TouchableOpacity
-        style={styles.coachFab}
-        onPress={() => nav.navigate('Coach')}
-        activeOpacity={0.85}
+      <Animated.View
+        style={[
+          styles.coachFabAnimated,
+          {
+            transform: pan.getTranslateTransform(),
+          },
+        ]}
+        {...panResponder.panHandlers}
       >
         <Ionicons name="chatbubble-ellipses" size={18} color={colors.accent} />
-      </TouchableOpacity>
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -371,22 +486,21 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
   },
 
-  // FAB — AI Coach (Small Side Tab)
-  coachFab: {
+  // FAB — AI Coach (Draggable Glassmorphic Orb)
+  coachFabAnimated: {
     position: 'absolute',
-    top: 150,
-    left: 0,
-    width: 32,
-    height: 48,
-    backgroundColor: `${colors.accent}20`,
-    borderWidth: 1,
-    borderLeftWidth: 0,
+    width: COACH_BUTTON_SIZE,
+    height: COACH_BUTTON_SIZE,
+    borderRadius: COACH_BUTTON_SIZE / 2,
+    backgroundColor: 'rgba(20, 20, 25, 0.85)',
+    borderWidth: 1.5,
     borderColor: colors.accent,
-    borderTopRightRadius: 24,
-    borderBottomRightRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingRight: 2,
-    elevation: 4,
+    elevation: 6,
+    shadowColor: colors.accent,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
   },
 });
