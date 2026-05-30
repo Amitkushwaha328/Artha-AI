@@ -47,6 +47,7 @@ export default function ForecastScreen() {
       setPaidBills(paid);
     } catch (e) {
       console.error('Forecast load error:', e);
+      Alert.alert('Load Error', 'Failed to retrieve forecast data. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl, Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -42,6 +42,7 @@ export default function GigScreen() {
       setExpenses(txns.filter(t => t.type === 'debit').slice(0, 5));
     } catch (e) {
       console.error('Gig load error:', e);
+      Alert.alert('Load Error', 'Failed to retrieve gig data. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);

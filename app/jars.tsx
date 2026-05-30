@@ -31,6 +31,7 @@ export default function JarsScreen() {
       setJars(data);
     } catch (e) {
       console.error('Jars load error:', e);
+      Alert.alert('Load Error', 'Failed to retrieve savings jars. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
