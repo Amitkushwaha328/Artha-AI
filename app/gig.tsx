@@ -1,11 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, type } from '../theme';
 import { useStore } from '../store/useStore';
 import { api, Invoice, Transaction } from '../services/api';
@@ -27,25 +27,32 @@ export default function GigScreen() {
   const [invoices, setInvoices]   = useState<Invoice[]>([]);
   const [expenses, setExpenses]   = useState<Transaction[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const [inv, txns] = await Promise.all([
-          api.invoices.getAll(),
-          api.transactions.getThisMonth(),
-        ]);
-        setInvoices(inv);
-        // Only show debit (expense) transactions, max 5
-        setExpenses(txns.filter(t => t.type === 'debit').slice(0, 5));
-      } catch (e) {
-        console.error('Gig load error:', e);
-      } finally {
-        setLoading(false);
-      }
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    else setRefreshing(true);
+    try {
+      const [inv, txns] = await Promise.all([
+        api.invoices.getAll(),
+        api.transactions.getThisMonth(),
+      ]);
+      setInvoices(inv);
+      // Only show debit (expense) transactions, max 5
+      setExpenses(txns.filter(t => t.type === 'debit').slice(0, 5));
+    } catch (e) {
+      console.error('Gig load error:', e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-    loadData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   // Derived stats from invoices
   const totalEarned   = invoices.reduce((s, i) => s + i.amount, 0);
@@ -79,6 +86,14 @@ export default function GigScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadData(true)}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
       >
         {loading ? (
           <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />

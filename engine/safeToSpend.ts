@@ -1,5 +1,4 @@
-import { getBills, getTxnsThisMonth } from '../db/queries';
-import { Profile } from '../db/queries';
+import { Profile, Bill, Transaction } from '../db/queries';
 
 export interface STSResult {
   safeAmount:       number;  // ← THE NUMBER shown on home screen
@@ -12,7 +11,11 @@ export interface STSResult {
   daysLeft:         number;
 }
 
-export async function calcSTS(profile: Profile): Promise<STSResult> {
+export function calcSTS(
+  profile: Profile,
+  bills: Bill[],
+  txns: Transaction[]
+): STSResult {
   const today = new Date();
   const dayOfMonth  = today.getDate();
   const daysInMonth = new Date(
@@ -20,13 +23,11 @@ export async function calcSTS(profile: Profile): Promise<STSResult> {
   const daysLeft = Math.max(1, daysInMonth - dayOfMonth);
 
   // Bills still due AFTER today in this cycle
-  const bills = await getBills();
   const reservedForBills = bills
     .filter(b => b.due_day > dayOfMonth)
     .reduce((s, b) => s + b.amount, 0);
 
   // What was already spent this month (debits only)
-  const txns = await getTxnsThisMonth();
   const spentSoFar = txns
     .filter(t => t.type === 'debit')
     .reduce((s, t) => s + t.amount, 0);

@@ -23,10 +23,11 @@ import {
   JetBrainsMono_700Bold,
 } from '@expo-google-fonts/jetbrains-mono';
 
-// Database
+// Database & Store
 import { initDB } from './db/schema';
 import { seedDB } from './db/seed';
 import { useStore } from './store/useStore';
+import { useAuthStore } from './store/authStore';
 import { colors } from './theme';
 import * as SecureStore from 'expo-secure-store';
 
@@ -36,6 +37,8 @@ import ForecastScreen from './app/forecast';
 import GigScreen      from './app/gig';
 import FamilyScreen   from './app/family';
 import SettingsScreen from './app/settings';
+import LoginScreen    from './app/login';
+import SignupScreen   from './app/signup';
 
 // Stack screens (modals)
 import AlertsScreen  from './app/alerts';
@@ -52,6 +55,16 @@ import JarsScreen         from './app/jars';
 
 const Tab   = createBottomTabNavigator();
 const Stack = createStackNavigator();
+const AuthStack = createStackNavigator();
+
+function AuthNavigator() {
+  return (
+    <AuthStack.Navigator screenOptions={{ headerShown: false, cardStyle: { backgroundColor: colors.bg } }}>
+      <AuthStack.Screen name="Login" component={LoginScreen} />
+      <AuthStack.Screen name="Signup" component={SignupScreen} />
+    </AuthStack.Navigator>
+  );
+}
 
 function TabNavigator() {
   return (
@@ -94,6 +107,8 @@ export default function App() {
   const [dbReady, setDbReady]         = useState(false);
   const [initialRoute, setInitialRoute] = useState<'Onboard'|'Tabs'>('Tabs');
   const refreshAll = useStore(s => s.refreshAll);
+  
+  const { checkAuth, isAuthenticated, isLoading: authLoading } = useAuthStore();
 
   const [fontsLoaded, fontError] = useFonts({
     Inter_400Regular,
@@ -111,6 +126,8 @@ export default function App() {
         await initDB();          // create tables
         await seedDB();
         await refreshAll();      // run all 3 engines
+        
+        await checkAuth();       // Check user session token
 
         // Check if user has already completed onboarding
         const onboarded = await SecureStore.getItemAsync('artha_onboarded');
@@ -146,8 +163,8 @@ export default function App() {
     );
   }
 
-  // 3. Wait for Database
-  if (!dbReady) {
+  // 3. Wait for Database and Auth check
+  if (!dbReady || authLoading) {
     return (
       <View style={{ flex:1, backgroundColor: colors.bg, justifyContent:'center', alignItems:'center' }}>
         <ActivityIndicator size='large' color={colors.accent} />
@@ -160,33 +177,37 @@ export default function App() {
       <SafeAreaProvider>
         <StatusBar barStyle='light-content' backgroundColor={colors.bg} />
         <NavigationContainer>
-          <Stack.Navigator
-            initialRouteName={initialRoute}
-            screenOptions={{
-              headerShown: false,
-              cardStyle: { backgroundColor: colors.bg },
-            }}
-          >
-            <Stack.Screen name='Onboard'  component={OnboardScreen} />
-            <Stack.Screen name='Tabs'     component={TabNavigator}
-              initialParams={{ initialRoute }} />
-            <Stack.Screen name='Alerts'   component={AlertsScreen}
-              options={{ presentation: 'modal' }} />
-            <Stack.Screen name='Doom'     component={DoomScreen}
-              options={{ presentation: 'modal' }} />
-            <Stack.Screen name='Breathe'  component={BreatheScreen}
-              options={{ presentation: 'modal' }} />
-            <Stack.Screen name='Jugaad'   component={JugaadScreen}
-              options={{ presentation: 'modal' }} />
-            <Stack.Screen name='Coach'    component={CoachScreen}
-              options={{ presentation: 'modal' }} />
-            <Stack.Screen name='Schemes'  component={SchemesScreen}
-              options={{ presentation: 'modal' }} />
-            <Stack.Screen name='AddTxn'       component={AddTxnScreen}       options={{ presentation: 'modal' }} />
-            <Stack.Screen name='Transactions' component={TransactionsScreen} options={{ presentation: 'modal' }} />
-            <Stack.Screen name='EditProfile'  component={EditProfileScreen}  options={{ presentation: 'modal' }} />
-            <Stack.Screen name='Jars'         component={JarsScreen}         options={{ presentation: 'modal' }} />
-          </Stack.Navigator>
+          {!isAuthenticated ? (
+            <AuthNavigator />
+          ) : (
+            <Stack.Navigator
+              initialRouteName={initialRoute}
+              screenOptions={{
+                headerShown: false,
+                cardStyle: { backgroundColor: colors.bg },
+              }}
+            >
+              <Stack.Screen name='Onboard'  component={OnboardScreen} />
+              <Stack.Screen name='Tabs'     component={TabNavigator}
+                initialParams={{ initialRoute }} />
+              <Stack.Screen name='Alerts'   component={AlertsScreen}
+                options={{ presentation: 'modal' }} />
+              <Stack.Screen name='Doom'     component={DoomScreen}
+                options={{ presentation: 'modal' }} />
+              <Stack.Screen name='Breathe'  component={BreatheScreen}
+                options={{ presentation: 'modal' }} />
+              <Stack.Screen name='Jugaad'   component={JugaadScreen}
+                options={{ presentation: 'modal' }} />
+              <Stack.Screen name='Coach'    component={CoachScreen}
+                options={{ presentation: 'modal' }} />
+              <Stack.Screen name='Schemes'  component={SchemesScreen}
+                options={{ presentation: 'modal' }} />
+              <Stack.Screen name='AddTxn'       component={AddTxnScreen}       options={{ presentation: 'modal' }} />
+              <Stack.Screen name='Transactions' component={TransactionsScreen} options={{ presentation: 'modal' }} />
+              <Stack.Screen name='EditProfile'  component={EditProfileScreen}  options={{ presentation: 'modal' }} />
+              <Stack.Screen name='Jars'         component={JarsScreen}         options={{ presentation: 'modal' }} />
+            </Stack.Navigator>
+          )}
         </NavigationContainer>
       </SafeAreaProvider>
     </GestureHandlerRootView>

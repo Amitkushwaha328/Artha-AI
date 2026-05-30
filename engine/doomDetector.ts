@@ -1,4 +1,4 @@
-import { getTxnsLast48h } from '../db/queries';
+import { Transaction } from '../db/queries';
 
 export interface DoomResult {
   isDoom:      boolean;
@@ -8,9 +8,7 @@ export interface DoomResult {
   severity:    'none' | 'mild' | 'high';
 }
 
-export async function detectDoom(): Promise<DoomResult> {
-  const txns = await getTxnsLast48h();
-
+export function detectDoom(txns: Transaction[]): DoomResult {
   // Filter micro-transactions (under ₹800)
   const micro = txns.filter(t => t.amount < 800);
 

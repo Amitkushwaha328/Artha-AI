@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  ActivityIndicator, Alert, TextInput, Modal,
+  ActivityIndicator, Alert, TextInput, Modal, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -18,11 +18,14 @@ export default function JarsScreen() {
   const nav = useNavigation<any>();
   const [jars, setJars]         = useState<Jar[]>([]);
   const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [modal, setModal]       = useState<{ jar: Jar } | null>(null);
   const [addAmt, setAddAmt]     = useState('');
   const [saving, setSaving]     = useState(false);
 
-  const loadJars = useCallback(async () => {
+  const loadJars = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    else setRefreshing(true);
     try {
       const data = await api.jars.getAll();
       setJars(data);
@@ -30,6 +33,7 @@ export default function JarsScreen() {
       console.error('Jars load error:', e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   }, []);
 
@@ -71,7 +75,18 @@ export default function JarsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadJars(true)}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
+      >
         {/* ── OVERALL SUMMARY ── */}
         {!loading && jars.length > 0 && (
           <View style={styles.summaryCard}>

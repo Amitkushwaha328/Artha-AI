@@ -2,11 +2,11 @@ import React, { useCallback, useRef, useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Dimensions, Image,
-  Animated, PanResponder,
+  Animated, PanResponder, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, type } from '../theme';
 import { useStore } from '../store/useStore';
@@ -25,30 +25,6 @@ export default function HomeScreen() {
     if (hour < 17) return 'Good afternoon';
     return 'Good evening';
   }
-
-  // ── Live balance breakdown from DB ──
-  const [billsReserved, setBillsReserved] = useState(0);
-  const [spentThisMonth, setSpentThisMonth] = useState(0);
-
-  useEffect(() => {
-    async function loadBreakdown() {
-      try {
-        const [bills, txns] = await Promise.all([
-          api.bills.getAll(),
-          api.transactions.getThisMonth(),
-        ]);
-        const reserved = bills.reduce((sum, b) => sum + b.amount, 0);
-        const spent = txns
-          .filter(t => t.type === 'debit')
-          .reduce((sum, t) => sum + t.amount, 0);
-        setBillsReserved(reserved);
-        setSpentThisMonth(spent);
-      } catch (e) {
-        console.error('Home breakdown load error:', e);
-      }
-    }
-    loadBreakdown();
-  }, []);
 
   const pan = useRef(new Animated.ValueXY({ x: 0, y: 200 })).current;
   const offset = useRef({ x: 0, y: 200 });
@@ -122,7 +98,16 @@ export default function HomeScreen() {
       },
     })
   ).current;
-  const { safeToSpend, balance, monthlyIncome, dangerWindow, doomActive, profile } = useStore();
+  const { safeToSpend, balance, monthlyIncome, dangerWindow, doomActive, profile, sts, isLoading, refreshAll } = useStore();
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshAll();
+    }, [refreshAll])
+  );
+
+  const billsReserved = sts?.reservedForBills ?? 0;
+  const spentThisMonth = sts?.spentSoFar ?? 0;
 
   const budgetUsedPct = monthlyIncome > 0
     ? Math.min(100, Math.round(((monthlyIncome - (balance ?? 0)) / monthlyIncome) * 100))
@@ -182,6 +167,14 @@ export default function HomeScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={refreshAll}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
       >
         {/* ── HERO CARD — Safe to Spend ── */}
         <View style={styles.heroCard}>

@@ -1,8 +1,6 @@
 import { create } from 'zustand';
-import { STSResult, calcSTS } from '../engine/safeToSpend';
-import { DangerSummary, buildDangerWindow } from '../engine/dangerWindow';
-import { DoomResult, detectDoom } from '../engine/doomDetector';
-import { api, Profile } from '../services/api';
+import { Alert } from 'react-native';
+import { api, Profile, STSResult, DangerSummary, DoomResult } from '../services/api';
 
 interface AppState {
   // Profile
@@ -65,11 +63,11 @@ export const useStore = create<AppState>((set, get) => ({
       const profile = await api.profile.get();
       if (!profile) { set({ isLoading: false }); return; }
 
-      // Run all 3 engines in parallel
+      // Run all 3 engines in parallel via API
       const [sts, danger, doom] = await Promise.all([
-        calcSTS(profile),
-        buildDangerWindow(profile),
-        detectDoom(),
+        api.engine.getSTS(profile),
+        api.engine.getDangerWindow(profile),
+        api.engine.detectDoom(),
       ]);
 
       set({ 
@@ -87,6 +85,10 @@ export const useStore = create<AppState>((set, get) => ({
     } catch (e) {
       console.error('Store refresh error:', e);
       set({ isLoading: false });
+      Alert.alert(
+        'Sync Error',
+        'Could not update latest financial dashboard. Please check your internet connection.'
+      );
     }
   },
 

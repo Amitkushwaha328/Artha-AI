@@ -1,12 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, Dimensions, ActivityIndicator, Alert,
+  StyleSheet, Dimensions, ActivityIndicator, Alert, RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path, Defs, LinearGradient, Stop, Circle, Line } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, spacing, radius, type } from '../theme';
 import { useStore } from '../store/useStore';
 import { api, Bill, Profile } from '../services/api';
@@ -30,17 +30,17 @@ export default function ForecastScreen() {
   const [profile, setProfile]   = useState<Profile | null>(null);
   const [paidBills, setPaidBills] = useState<string[]>([]);  // bill names paid this month
   const [loading, setLoading]   = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  async function loadData() {
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (!isRefresh) setLoading(true);
+    else setRefreshing(true);
     try {
       const [b, p, paid] = await Promise.all([
         api.bills.getAll(),
         api.profile.get(),
         api.bills.getPaidThisMonth(),
+        refreshAll(), // also update store's dangerWindow calculation
       ]);
       setBills(b);
       setProfile(p ?? null);
@@ -49,8 +49,15 @@ export default function ForecastScreen() {
       console.error('Forecast load error:', e);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }
+  }, [refreshAll]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   // Mark a bill as paid: add a debit transaction for it
   async function markBillPaid(bill: Bill) {
@@ -109,6 +116,14 @@ export default function ForecastScreen() {
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadData(true)}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        }
       >
         {/* ── DANGER WINDOW ALERT CARD ── */}
         {dangerWindow?.hasDanger && (

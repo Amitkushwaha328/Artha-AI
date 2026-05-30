@@ -1,5 +1,4 @@
-import { getBills, getCategoryTotals } from '../db/queries';
-import { Profile } from '../db/queries';
+import { Profile, Bill } from '../db/queries';
 import { addDays, format, getDate } from 'date-fns';
 
 export interface DayForecast {
@@ -18,12 +17,11 @@ export interface DangerSummary {
   forecasts:   DayForecast[];
 }
 
-export async function buildDangerWindow(
-  profile: Profile
-): Promise<DangerSummary> {
-  const bills    = await getBills();
-  const catTotals = await getCategoryTotals();
-
+export function buildDangerWindow(
+  profile: Profile,
+  bills: Bill[],
+  catTotals: { category: string; total: number }[]
+): DangerSummary {
   // Daily variable burn = this month's variable spend / days so far
   const variableSpend = catTotals
     .filter(c => !['rent','emi','subscription'].includes(c.category))
