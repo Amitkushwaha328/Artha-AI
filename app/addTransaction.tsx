@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
-import { addTransaction } from '../db/queries';
+import { api } from '../services/api';
 import { useStore } from '../store/useStore';
 import { colors, type, spacing, radius } from '../theme';
 
@@ -140,7 +140,7 @@ export default function AddTransactionScreen() {
     }
     setSaving(true);
     try {
-      await addTransaction({
+      await api.transactions.add({
         amount: amt, type: typeState, category, merchant, note,
         txn_date: new Date().toISOString(),
         is_recurring: 0, member_id: 0,

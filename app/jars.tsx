@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { getJars, addToJar, Jar } from '../db/queries';
+import { api, Jar } from '../services/api';
 import { colors, spacing, radius, type } from '../theme';
 import * as Haptics from 'expo-haptics';
 
@@ -24,7 +24,7 @@ export default function JarsScreen() {
 
   const loadJars = useCallback(async () => {
     try {
-      const data = await getJars();
+      const data = await api.jars.getAll();
       setJars(data);
     } catch (e) {
       console.error('Jars load error:', e);
@@ -44,7 +44,7 @@ export default function JarsScreen() {
     }
     setSaving(true);
     try {
-      await addToJar(modal.jar.id, amt);
+      await api.jars.addFunds(modal.jar.id, amt);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setModal(null);
       setAddAmt('');

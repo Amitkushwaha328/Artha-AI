@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { getProfile, updateProfile } from '../db/queries';
+import { api } from '../services/api';
 import { useStore } from '../store/useStore';
 import { colors, type, spacing, radius } from '../theme';
 
@@ -30,7 +30,7 @@ export default function EditProfileScreen() {
   useEffect(() => {
     async function loadData() {
       try {
-        const p = await getProfile();
+        const p = await api.profile.get();
         if (p) {
           setName(p.name || '');
           setCity(p.city || '');
@@ -73,7 +73,7 @@ export default function EditProfileScreen() {
 
     setSaving(true);
     try {
-      await updateProfile({
+      await api.profile.update({
         name: name.trim(),
         city: city.trim(),
         monthly_income: inc,

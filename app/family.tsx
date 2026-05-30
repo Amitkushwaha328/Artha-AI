@@ -8,7 +8,7 @@ import Svg, { Circle } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, radius, type } from '../theme';
-import { getMembers, addMember, deleteMember, Member } from '../db/queries';
+import { api, Member } from '../services/api';
 
 const RING_R  = 52;
 const RING_C  = 2 * Math.PI * RING_R;
@@ -33,7 +33,7 @@ export default function FamilyScreen() {
 
   async function loadData() {
     try {
-      const data = await getMembers();
+      const data = await api.members.getAll();
       setMembers(data);
     } catch (e) {
       console.error(e);
@@ -62,7 +62,7 @@ export default function FamilyScreen() {
       const initials = newName.substring(0, 2).toUpperCase();
       const color = COLORS[members.length % COLORS.length];
       
-      await addMember({
+      await api.members.add({
         name: newName.trim(),
         rel: newRel.trim(),
         initials,
@@ -87,7 +87,7 @@ export default function FamilyScreen() {
     Alert.alert('Remove Member', 'Are you sure you want to remove this family member?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Remove', style: 'destructive', onPress: async () => {
-        await deleteMember(id);
+        await api.members.delete(id);
         await loadData();
       }}
     ]);

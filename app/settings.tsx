@@ -6,7 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useStore } from '../store/useStore';
-import { updateProfile } from '../db/queries';
+import { api } from '../services/api';
 import { colors, spacing, radius, type } from '../theme';
 
 export default function SettingsScreen() {
@@ -24,7 +24,7 @@ export default function SettingsScreen() {
   async function updateLang(l: string) {
     if (!profile) return;
     try {
-      await updateProfile({ language: l });
+      await api.profile.update({ language: l });
       await refreshAll();
       setLangModalVisible(false);
     } catch (e) {

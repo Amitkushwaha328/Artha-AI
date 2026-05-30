@@ -10,7 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import { colors, spacing, radius, type } from '../theme';
 import { useStore } from '../store/useStore';
-import { getBills, getTxnsThisMonth } from '../db/queries';
+import { api } from '../services/api';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const COACH_BUTTON_SIZE = 46;
@@ -34,8 +34,8 @@ export default function HomeScreen() {
     async function loadBreakdown() {
       try {
         const [bills, txns] = await Promise.all([
-          getBills(),
-          getTxnsThisMonth(),
+          api.bills.getAll(),
+          api.transactions.getThisMonth(),
         ]);
         const reserved = bills.reduce((sum, b) => sum + b.amount, 0);
         const spent = txns

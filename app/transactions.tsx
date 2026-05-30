@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { format, isToday, isYesterday, parseISO } from 'date-fns';
-import { getTxnsThisMonth, Transaction } from '../db/queries';
+import { api, Transaction } from '../services/api';
 import { colors, type, spacing, radius } from '../theme';
 
 // Map categories to emojis for display
@@ -44,7 +44,7 @@ export default function TransactionsScreen() {
   useEffect(() => {
     async function loadData() {
       try {
-        const data = await getTxnsThisMonth();
+        const data = await api.transactions.getThisMonth();
         setTxns(data);
       } catch (e) {
         console.error("Failed to load transactions", e);

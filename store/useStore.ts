@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { STSResult, calcSTS } from '../engine/safeToSpend';
 import { DangerSummary, buildDangerWindow } from '../engine/dangerWindow';
 import { DoomResult, detectDoom } from '../engine/doomDetector';
-import { getProfile, updateProfile, Profile } from '../db/queries';
+import { api, Profile } from '../services/api';
 
 interface AppState {
   // Profile
@@ -55,14 +55,14 @@ export const useStore = create<AppState>((set, get) => ({
   setProfile: (p) => set({ profile: p }),
 
   refreshProfile: async () => {
-    const p = await getProfile();
+    const p = await api.profile.get();
     if (p) set({ profile: p });
   },
 
   refreshAll: async () => {
     set({ isLoading: true });
     try {
-      const profile = await getProfile();
+      const profile = await api.profile.get();
       if (!profile) { set({ isLoading: false }); return; }
 
       // Run all 3 engines in parallel
@@ -97,7 +97,7 @@ export const useStore = create<AppState>((set, get) => ({
     const newBalance = type === 'add'
       ? profile.current_balance + amount
       : profile.current_balance - amount;
-    await updateProfile({ current_balance: Math.max(0, newBalance) });
+    await api.profile.update({ current_balance: Math.max(0, newBalance) });
     await get().refreshAll();
   },
 }));

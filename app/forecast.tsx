@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, radius, type } from '../theme';
 import { useStore } from '../store/useStore';
-import { getBills, getProfile, getPaidBillsThisMonth, addTransaction, Bill, Profile } from '../db/queries';
+import { api, Bill, Profile } from '../services/api';
 
 const { width } = Dimensions.get('window');
 const CHART_W = width - (spacing.containerMargin * 2) - (spacing.base * 2);
@@ -38,9 +38,9 @@ export default function ForecastScreen() {
   async function loadData() {
     try {
       const [b, p, paid] = await Promise.all([
-        getBills(),
-        getProfile(),
-        getPaidBillsThisMonth(),
+        api.bills.getAll(),
+        api.profile.get(),
+        api.bills.getPaidThisMonth(),
       ]);
       setBills(b);
       setProfile(p ?? null);
@@ -64,7 +64,7 @@ export default function ForecastScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await addTransaction({
+              await api.transactions.add({
                 amount: bill.amount,
                 type: 'debit',
                 category: bill.category,

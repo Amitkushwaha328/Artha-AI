@@ -8,7 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing, radius, type } from '../theme';
 import { useStore } from '../store/useStore';
-import { getInvoices, getTxnsThisMonth, Invoice, Transaction } from '../db/queries';
+import { api, Invoice, Transaction } from '../services/api';
 import { format, parseISO } from 'date-fns';
 
 const RING_R = 44;
@@ -32,8 +32,8 @@ export default function GigScreen() {
     async function loadData() {
       try {
         const [inv, txns] = await Promise.all([
-          getInvoices(),
-          getTxnsThisMonth(),
+          api.invoices.getAll(),
+          api.transactions.getThisMonth(),
         ]);
         setInvoices(inv);
         // Only show debit (expense) transactions, max 5
