@@ -1,1 +1,36 @@
+# Dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+
+# Environment variables (NEVER commit - contains API keys!)
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build scripts / scratch files
+generate_doc.js
+extract.js
+list_tags.js
+check_logo.js
+crop_logo.js
+search_onboard.js
+up.bat
+up.ps1
+handoff_context.md
+github.txt
+PROJECT_HANDOFF.md
+AGENTS.md
+CLAUDE.md
 node_modules
