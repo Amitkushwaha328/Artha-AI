@@ -1,110 +1,186 @@
-import * as queries from '../db/queries';
-import { calcSTS, STSResult } from '../engine/safeToSpend';
-import { buildDangerWindow, DangerSummary } from '../engine/dangerWindow';
+import * as SecureStore from 'expo-secure-store';
+import { STSResult } from '../engine/safeToSpend';
+import { DangerSummary } from '../engine/dangerWindow';
 import { detectDoom, DoomResult } from '../engine/doomDetector';
+import * as queries from '../db/queries';
+
 export * from '../db/queries'; // Re-export types like Profile, Transaction, etc.
 export { STSResult, DangerSummary, DoomResult };
 
-/**
- * API Abstraction Layer
- * 
- * Currently this wraps the local SQLite database queries.
- * Once the backend is ready, these functions will be replaced
- * with fetch/axios calls to the remote REST API, keeping the
- * UI components unaware of the underlying data source.
- */
+const BASE_URL = 'http://10.215.168.109:3000';
+const TOKEN_KEY = 'artha_auth_token';
 
+/**
+ * Fetch Wrapper Helper
+ */
+async function getHeaders() {
+  const token = await SecureStore.getItemAsync(TOKEN_KEY);
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = await getHeaders();
+  const res = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...options.headers,
+    },
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+  }
+
+  return res.json();
+}
+
+/**
+ * API Client Implementation connecting to REST API backend
+ */
 export const api = {
   auth: {
     login: async (email: string, password: string) => {
-      // Mock API call
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          if (email === 'test@example.com' && password === 'password') {
-            resolve({ token: 'mock-jwt-token-123', user: { id: 1, name: 'You', email } });
-          } else {
-            reject(new Error('Invalid credentials'));
-          }
-        }, 1000);
+      return request<{ token: string; user: any }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
       });
     },
     register: async (email: string, password: string, name: string) => {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve({ token: 'mock-jwt-token-new', user: { id: 2, name, email } });
-        }, 1000);
+      return request<{ token: string; user: any }>('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, name }),
       });
     },
     verifyToken: async (token: string) => {
-      return new Promise((resolve, reject) => {
-        setTimeout(() => {
-          if (token) resolve({ valid: true, user: { id: 1, name: 'You' } });
-          else reject(new Error('Invalid token'));
-        }, 500);
+      return request<{ valid: boolean; user: any }>('/auth/verify', {
+        headers: { Authorization: `Bearer ${token}` },
       });
     },
   },
   profile: {
-    get: queries.getProfile,
-    update: queries.updateProfile,
+    get: async (): Promise<queries.Profile> => {
+      return request<queries.Profile>('/profile');
+    },
+    update: async (data: Partial<queries.Profile>): Promise<queries.Profile> => {
+      return request<queries.Profile>('/profile', {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      });
+    },
   },
   transactions: {
-    getThisMonth: queries.getTxnsThisMonth,
-    getLast48h: queries.getTxnsLast48h,
-    getCategoryTotals: queries.getCategoryTotals,
-    add: queries.addTransaction,
-    delete: queries.deleteTransaction,
+    getThisMonth: async (): Promise<queries.Transaction[]> => {
+      return request<queries.Transaction[]>('/transactions');
+    },
+    getLast48h: async (): Promise<queries.Transaction[]> => {
+      return request<queries.Transaction[]>('/transactions/last48h');
+    },
+    getCategoryTotals: async (): Promise<{ category: string; total: number; count: number }[]> => {
+      return request<{ category: string; total: number; count: number }[]>('/transactions/category-totals');
+    },
+    add: async (t: Omit<queries.Transaction, 'id' | 'created_at'>) => {
+      return request<queries.Transaction>('/transactions', {
+        method: 'POST',
+        body: JSON.stringify(t),
+      });
+    },
+    delete: async (id: number) => {
+      return request<{ success: boolean }>(`/transactions/${id}`, {
+        method: 'DELETE',
+      });
+    },
   },
   bills: {
-    getAll: queries.getBills,
-    add: queries.addBill,
-    delete: queries.deleteBill,
-    getPaidThisMonth: queries.getPaidBillsThisMonth,
+    getAll: async (): Promise<queries.Bill[]> => {
+      return request<queries.Bill[]>('/bills');
+    },
+    add: async (b: Omit<queries.Bill, 'id'>) => {
+      return request<queries.Bill>('/bills', {
+        method: 'POST',
+        body: JSON.stringify(b),
+      });
+    },
+    delete: async (id: number) => {
+      return request<{ success: boolean }>(`/bills/${id}`, {
+        method: 'DELETE',
+      });
+    },
+    getPaidThisMonth: async (): Promise<string[]> => {
+      return request<string[]>('/bills/paid-this-month');
+    },
   },
   invoices: {
-    getAll: queries.getInvoices,
-    add: queries.addInvoice,
-    updateStatus: queries.updateInvoiceStatus,
+    getAll: async (): Promise<queries.Invoice[]> => {
+      return request<queries.Invoice[]>('/invoices');
+    },
+    add: async (inv: Omit<queries.Invoice, 'id'>) => {
+      return request<queries.Invoice>('/invoices', {
+        method: 'POST',
+        body: JSON.stringify(inv),
+      });
+    },
+    updateStatus: async (id: number, status: string) => {
+      return request<queries.Invoice>(`/invoices/${id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+    },
   },
   jars: {
-    getAll: queries.getJars,
-    addFunds: queries.addToJar,
+    getAll: async (): Promise<queries.Jar[]> => {
+      return request<queries.Jar[]>('/jars');
+    },
+    addFunds: async (id: number, amount: number) => {
+      return request<queries.Jar>(`/jars/${id}/fund`, {
+        method: 'POST',
+        body: JSON.stringify({ amount }),
+      });
+    },
   },
   members: {
-    getAll: queries.getMembers,
-    add: queries.addMember,
-    delete: queries.deleteMember,
+    getAll: async (): Promise<queries.Member[]> => {
+      return request<queries.Member[]>('/members');
+    },
+    add: async (m: { name: string; rel: string; initials: string; monthly_limit: number; color: string }) => {
+      return request<queries.Member>('/members', {
+        method: 'POST',
+        body: JSON.stringify(m),
+      });
+    },
+    delete: async (id: number) => {
+      return request<{ success: boolean }>(`/members/${id}`, {
+        method: 'DELETE',
+      });
+    },
   },
   chat: {
-    getHistory: queries.getChatHistory,
-    saveMessage: queries.saveChatMessage,
+    getHistory: async (): Promise<queries.ChatMessage[]> => {
+      return request<queries.ChatMessage[]>('/chat');
+    },
+    saveMessage: async (role: string, content: string) => {
+      return request<queries.ChatMessage>('/chat', {
+        method: 'POST',
+        body: JSON.stringify({ role, content }),
+      });
+    },
   },
   engine: {
     getSTS: async (profile: queries.Profile): Promise<STSResult> => {
-      const bills = await queries.getBills();
-      const txns = await queries.getTxnsThisMonth();
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(calcSTS(profile, bills, txns));
-        }, 300);
-      });
+      return request<STSResult>('/engine/sts');
     },
     getDangerWindow: async (profile: queries.Profile): Promise<DangerSummary> => {
-      const bills = await queries.getBills();
-      const catTotals = await queries.getCategoryTotals();
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(buildDangerWindow(profile, bills, catTotals));
-        }, 300);
-      });
+      return request<DangerSummary>('/engine/danger-window');
     },
     detectDoom: async (): Promise<DoomResult> => {
-      const txns = await queries.getTxnsLast48h();
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          resolve(detectDoom(txns));
-        }, 300);
-      });
+      return request<DoomResult>('/engine/doom');
     },
   },
 };
