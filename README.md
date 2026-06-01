@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="C:\Users\Asus\OneDrive\Desktop\Work house\Project\Artha AI\Gemini_Generated_Image_8zoip58zoip58zoi (1).png" alt="Artha AI Banner" width="100%"/>
+  <img src="./assets/banner.png" alt="Artha AI Banner" width="100%"/>
 
   <br/>
   <br/>
